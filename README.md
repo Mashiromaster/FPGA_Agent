@@ -11,42 +11,70 @@ the top, Python at the middle, and VHDL at the bottom.
 
 ```mermaid
 flowchart TB
-    USER(["自然语言请求"])
+    USER(["自然语言请求 · chat"])
 
-    L1["<b>LAYER 1</b><br/>AGENT 控制层<br/>Python + LLM"]
-    L1D["工具 schema<br/>系统提示词<br/>代码生成模板"]
+    subgraph LAYER1["&nbsp;&nbsp;LAYER 1 · AGENT 控制层 &nbsp;—&nbsp; Python + LLM&nbsp;&nbsp;"]
+        direction LR
+        A2["LLM Client<br/><i>OpenAI 兼容</i>"]
+        A1["Agent Core<br/><i>工具调用循环</i>"]
+        A3["Tool Executor<br/><i>9 个工具</i>"]
+        A4["Code Generator<br/><i>生成 VHDL+Py</i>"]
+        A5["Canvas Bridge<br/><i>安全门面</i>"]
 
-    L2["<b>LAYER 2</b><br/>PYTHON 控制层<br/>PySide6"]
-    L2D["节点类 NodeItem<br/>参数 schema<br/>硬件类 ModuleBase"]
+    end
 
-    L3["<b>LAYER 3</b><br/>FPGA 硬件层<br/>VHDL / Verilog"]
-    L3D["IP core<br/>module wrapper<br/>约束 XDC"]
+    subgraph LAYER2["&nbsp;&nbsp;LAYER 2 · PYTHON 控制层 &nbsp;—&nbsp; PySide6&nbsp;&nbsp;"]
+        direction LR
+        P1["MainWindow<br/><i>主窗口</i>"]
+        P2["DiagramScene<br/><i>节点画布</i>"]
+        P3["NodeItem<br/><i>14 种节点</i>"]
+        P4["ModuleBase<br/><i>硬件类</i>"]
+        P5["Bus · MySerial<br/><i>串口协议</i>"]
+    end
+
+    subgraph LAYER3["&nbsp;&nbsp;LAYER 3 · FPGA 硬件层 &nbsp;—&nbsp; VHDL / Verilog&nbsp;&nbsp;"]
+        direction TB
+        H1["central_control<br/><i>UART 解析状态机</i>"]
+        H2["Custom Bus<br/><i>mbus/abus/dbus/cbus</i>"]
+
+        subgraph IPS["&nbsp;信号处理 IP · 14 个&nbsp;"]
+            direction LR
+            I1["PID<br/>Accumulator<br/>Scaler"]
+            I2["Trigonometric<br/>InverseTrig<br/>Unwrapper"]
+            I3["FIR · IIR<br/>Mixer<br/>LinearTransformer"]
+            I4["PDH-FSM<br/>SCALO-FSM<br/>SignalRouter"]
+        end
+
+        H3["io management<br/><i>FH8052 · FL9613 · FL9627<br/>FL9781 · FL1010 · AN9767</i>"]
+
+        H1 <--> H2
+        H2 <--> IPS
+        IPS <--> H3
+    end
 
     ANALOG(["光学 / 射频前端"])
 
-    USER ==> L1
-    L1 ==>|"Qt calls"| L2
-    L2 ==>|"UART serial"| L3
-    L3 <==>|"ADC / DAC"| ANALOG
+    USER ==> A1
+    A5 ==>|"Qt calls"| P1
+    P5 ==>|"UART serial"| H1
+    H3 <==>|"ADC / DAC"| ANALOG
 
-    L1 -.- L1D
-    L2 -.- L2D
-    L3 -.- L3D
-
-    classDef l1 fill:#f4eef7,stroke:#8e6fa8,stroke-width:2px,color:#2d2235
-    classDef l2 fill:#eaf1f8,stroke:#5b84b1,stroke-width:2px,color:#1e2a38
-    classDef l3 fill:#fdeff0,stroke:#85172e,stroke-width:2px,color:#3a1118
-    classDef note fill:#fcfcfd,stroke:#bbb,stroke-dasharray:3 3,color:#444
+    classDef l1 fill:#f4eef7,stroke:#8e6fa8,color:#2d2235
+    classDef l2 fill:#eaf1f8,stroke:#5b84b1,color:#1e2a38
+    classDef l3 fill:#fdeff0,stroke:#85172e,color:#3a1118
+    classDef ip fill:#fff5f6,stroke:#b5566b,color:#3a1118
     classDef ext fill:#fff8e6,stroke:#b8860b,stroke-dasharray:4 3,color:#3d2c05
 
-    class L1 l1
-    class L2 l2
-    class L3 l3
-    class L1D,L2D,L3D note
+    class A1,A2,A3,A4,A5 l1
+    class P1,P2,P3,P4,P5 l2
+    class H1,H2,H3 l3
+    class I1,I2,I3,I4 ip
     class USER,ANALOG ext
 ```
 
-虚线框是每层的**编写对象** —— 搭一个新模块需要三层都动，参见
+**每层的编写对象：** Layer 1 写工具 schema 与系统提示词，Layer 2 写节点类
+`NodeItem`、参数 schema 与硬件类 `ModuleBase`，Layer 3 写 IP core、module
+wrapper 与 XDC 约束。搭一个新模块需要三层都动，参见
 `.agents/skills/integrating-dclocking-layers/`。
 
 | 层 | 代码位置 | 规模 | 核心组件 |
