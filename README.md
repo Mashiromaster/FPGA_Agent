@@ -9,86 +9,47 @@ An AI-assisted visual design environment for FPGA-based signal processing system
 Three layers, each a distinct authoring surface. You write natural language at
 the top, Python at the middle, and VHDL at the bottom.
 
-```mermaid
-flowchart TB
-    USER(["自然语言请求 · chat"])
+<table>
+<tr><td align="center"><b>自然语言请求</b> &nbsp;·&nbsp; <i>"帮我搭建 PDH 锁定系统"</i></td></tr>
+<tr><td align="center">↓ &nbsp; chat</td></tr>
+<tr><td>
+<b>LAYER 1 &nbsp;·&nbsp; AGENT 控制层</b> &nbsp;—&nbsp; <code>FPGA_Agent/</code> &nbsp;·&nbsp; Python + LLM &nbsp;·&nbsp; 3,308 行<br/>
+<br/>
+<code>Agent Core</code> 工具调用循环 &nbsp;|&nbsp; <code>LLM Client</code> OpenAI 兼容 &nbsp;|&nbsp; <code>Tool Executor</code> 9 个工具<br/>
+<code>Code Generator</code> 生成 VHDL+Python &nbsp;|&nbsp; <code>Canvas Bridge</code> 安全门面<br/>
+<br/>
+<i>编写对象：工具 schema · 系统提示词 · 代码生成模板</i>
+</td></tr>
+<tr><td align="center">↓ &nbsp; <b>Qt calls</b> &nbsp;·&nbsp; 经 CanvasBridge 门面</td></tr>
+<tr><td>
+<b>LAYER 2 &nbsp;·&nbsp; PYTHON 控制层</b> &nbsp;—&nbsp; <code>python control/</code> &nbsp;·&nbsp; PySide6 &nbsp;·&nbsp; 11,531 行<br/>
+<br/>
+<code>MainWindow</code> 主窗口 &nbsp;|&nbsp; <code>DiagramScene</code> 节点画布 &nbsp;|&nbsp; <code>NodeItem</code> 14 种节点<br/>
+<code>ModuleBase</code> 硬件类 &nbsp;|&nbsp; <code>Bus</code> · <code>MySerial</code> 串口协议<br/>
+<br/>
+<i>编写对象：节点类 · 参数 schema · 硬件类</i>
+</td></tr>
+<tr><td align="center">↓ &nbsp; <b>UART 串口</b> &nbsp;·&nbsp; <code>:BUS_.PIDC.WRTE.ADDR…!</code></td></tr>
+<tr><td>
+<b>LAYER 3 &nbsp;·&nbsp; FPGA 硬件层</b> &nbsp;—&nbsp; <code>modules/</code> <code>io management/</code> &nbsp;·&nbsp; VHDL / Verilog &nbsp;·&nbsp; Kintex UltraScale<br/>
+<br/>
+<code>central_control</code> UART 解析状态机 &nbsp;→&nbsp; <code>Custom Bus</code> mbus / abus / dbus / cbus<br/>
+<br/>
+<b>14 个信号处理 IP</b><br/>
+PID &nbsp;·&nbsp; Accumulator &nbsp;·&nbsp; Scaler &nbsp;·&nbsp; Mixer &nbsp;·&nbsp; Trigonometric &nbsp;·&nbsp; InverseTrig &nbsp;·&nbsp; Unwrapper<br/>
+FIR &nbsp;·&nbsp; IIR &nbsp;·&nbsp; LinearTransformer &nbsp;·&nbsp; PDH-FSM &nbsp;·&nbsp; SCALO-FSM &nbsp;·&nbsp; SignalRouter &nbsp;·&nbsp; WaveformStorage<br/>
+<br/>
+<b>io management</b> &nbsp;·&nbsp; 7 个 ADC/DAC 适配器<br/>
+FH8052 &nbsp;·&nbsp; FH9767D &nbsp;·&nbsp; FL9613 &nbsp;·&nbsp; FL9627 &nbsp;·&nbsp; FL9781 &nbsp;·&nbsp; FL1010 &nbsp;·&nbsp; AN9767<br/>
+<br/>
+<i>编写对象：IP core · module wrapper · XDC 约束</i>
+</td></tr>
+<tr><td align="center">↕ &nbsp; ADC / DAC</td></tr>
+<tr><td align="center"><b>光学 / 射频前端</b></td></tr>
+</table>
 
-    subgraph LAYER1["&nbsp;&nbsp;LAYER 1 · AGENT 控制层 &nbsp;—&nbsp; Python + LLM&nbsp;&nbsp;"]
-        direction LR
-        A2["LLM Client<br/><i>OpenAI 兼容</i>"]
-        A1["Agent Core<br/><i>工具调用循环</i>"]
-        A3["Tool Executor<br/><i>9 个工具</i>"]
-        A4["Code Generator<br/><i>生成 VHDL+Py</i>"]
-        A5["Canvas Bridge<br/><i>安全门面</i>"]
-
-    end
-
-    subgraph LAYER2["&nbsp;&nbsp;LAYER 2 · PYTHON 控制层 &nbsp;—&nbsp; PySide6&nbsp;&nbsp;"]
-        direction LR
-        P1["MainWindow<br/><i>主窗口</i>"]
-        P2["DiagramScene<br/><i>节点画布</i>"]
-        P3["NodeItem<br/><i>14 种节点</i>"]
-        P4["ModuleBase<br/><i>硬件类</i>"]
-        P5["Bus · MySerial<br/><i>串口协议</i>"]
-    end
-
-    subgraph LAYER3["&nbsp;&nbsp;LAYER 3 · FPGA 硬件层 &nbsp;—&nbsp; VHDL / Verilog&nbsp;&nbsp;"]
-        direction TB
-        H1["central_control<br/><i>UART 解析状态机</i>"]
-        H2["Custom Bus<br/><i>mbus/abus/dbus/cbus</i>"]
-
-        subgraph IPS["&nbsp;信号处理 IP · 14 个&nbsp;"]
-            direction LR
-            I1["PID<br/>Accumulator<br/>Scaler"]
-            I2["Trigonometric<br/>InverseTrig<br/>Unwrapper"]
-            I3["FIR · IIR<br/>Mixer<br/>LinearTransformer"]
-            I4["PDH-FSM<br/>SCALO-FSM<br/>SignalRouter"]
-        end
-
-        H3["io management<br/><i>FH8052 · FL9613 · FL9627<br/>FL9781 · FL1010 · AN9767</i>"]
-
-        H1 <--> H2
-        H2 <--> IPS
-        IPS <--> H3
-    end
-
-    ANALOG(["光学 / 射频前端"])
-
-    USER ==> A1
-    A5 ==>|"Qt calls"| P1
-    P5 ==>|"UART serial"| H1
-    H3 <==>|"ADC / DAC"| ANALOG
-
-    classDef l1 fill:#f4eef7,stroke:#8e6fa8,color:#2d2235
-    classDef l2 fill:#eaf1f8,stroke:#5b84b1,color:#1e2a38
-    classDef l3 fill:#fdeff0,stroke:#85172e,color:#3a1118
-    classDef ip fill:#fff5f6,stroke:#b5566b,color:#3a1118
-    classDef ext fill:#fff8e6,stroke:#b8860b,stroke-dasharray:4 3,color:#3d2c05
-
-    class A1,A2,A3,A4,A5 l1
-    class P1,P2,P3,P4,P5 l2
-    class H1,H2,H3 l3
-    class I1,I2,I3,I4 ip
-    class USER,ANALOG ext
-```
-
-**每层的编写对象：** Layer 1 写工具 schema 与系统提示词，Layer 2 写节点类
-`NodeItem`、参数 schema 与硬件类 `ModuleBase`，Layer 3 写 IP core、module
-wrapper 与 XDC 约束。搭一个新模块需要三层都动，参见
-`.agents/skills/integrating-dclocking-layers/`。
-
-| 层 | 代码位置 | 规模 | 核心组件 |
-|----|---------|------|---------|
-| Layer 1 · Agent | `FPGA_Agent/` | 3,308 行 | Agent Core · LLM Client · Tool Executor · Code Generator · Canvas Bridge |
-| Layer 2 · Python | `python control/` | 11,531 行 | MainWindow · DiagramScene · NodeItem · ModuleBase · Bus · MySerial |
-| Layer 3 · FPGA | `modules/` `io management/` | 14 IP + 7 适配器 | central_control · Custom Bus · bus_handler · parameter_ram |
-
-依赖严格单向：Layer 1 导入 Layer 2，Layer 2 对 Layer 1 零引用。
-
-**Layer 3 清单。** 14 个 IP：PID, Accumulator, Trigonometric, InverseTrig,
-Scaler, FIR, IIR, LinearTransformer, Mixer, Unwrapper, PDH-FSM, SCALO-FSM,
-SignalRouter, WaveformStorage。7 个适配器：FH8052, FH9767D, FL9613, FL9627,
-FL9781, FL1010, AN9767。
+依赖严格单向：Layer 1 导入 Layer 2，Layer 2 对 Layer 1 零引用。搭一个新模块
+需要三层都动，参见 `.agents/skills/integrating-dclocking-layers/`。
 
 ### Layer 1: AI Agent
 Natural language understanding layer. Takes user requests in Chinese or English, orchestrates LLM function-calling to manipulate the visual canvas, and generates new VHDL+Python module code on demand.
