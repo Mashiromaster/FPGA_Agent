@@ -6,76 +6,38 @@ An AI-assisted visual design environment for FPGA-based signal processing system
 
 ## System Architecture (Three-Layer Stack)
 
+```mermaid
+flowchart LR
+    LLM(["<b>LLM</b><br/><i>OpenAI-<br/>compatible</i>"])
+
+    L1["<b>LAYER 1 · AI Agent</b><br/><i>Python + LLM</i><br/>―――<br/>Agent Core<br/>Tool Executor<br/>Code Gen<br/>Canvas Bridge"]
+
+    L2["<b>LAYER 2 · Qt GUI</b><br/><i>PySide6</i><br/>―――<br/>MainWindow<br/>DiagramScene<br/>NodeItem<br/>ModuleBase"]
+
+    L3["<b>LAYER 3 · FPGA</b><br/><i>Kintex UltraScale</i><br/>―――<br/>central_control<br/>Custom Bus<br/>14 Signal IPs<br/>io management"]
+
+    ANALOG(["<b>Optical / RF</b><br/><i>front-end</i>"])
+
+    LLM <-->|"tool<br/>calls"| L1
+    L1 ==>|"Qt<br/>calls"| L2
+    L2 ==>|"UART<br/>serial"| L3
+    L3 <==>|"analog<br/>I/O"| ANALOG
+
+    classDef l1 fill:#f4eef7,stroke:#8e6fa8,stroke-width:2px,color:#2d2235
+    classDef l2 fill:#eaf1f8,stroke:#5b84b1,stroke-width:2px,color:#1e2a38
+    classDef l3 fill:#fdeff0,stroke:#85172e,stroke-width:2px,color:#3a1118
+    classDef ext fill:#fff8e6,stroke:#b8860b,color:#3d2c05
+
+    class L1 l1
+    class L2 l2
+    class L3 l3
+    class LLM,ANALOG ext
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│              LAYER 1: AI Agent (Python + LLM)                    │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌───────────────┐  │
-│  │   LLM Client     │  │   Agent Core     │  │  Code Gen     │  │
-│  │ (OpenAI compat)  │  │ (func-call loop) │  │ (VHDL+Python) │  │
-│  └────────┬─────────┘  └────────┬─────────┘  └───────────────┘  │
-│           │                     │                                │
-│  ┌────────┴─────────────────────┴────────────────────────────┐  │
-│  │              Tool Executor (9 tools)                       │  │
-│  │  create_module / connect_modules / set_parameter / ...    │  │
-│  └──────────────────────────┬───────────────────────────────┘  │
-│                             │                                   │
-│  ┌──────────────────────────┴───────────────────────────────┐  │
-│  │         Canvas Bridge (safe facade to Qt internals)       │  │
-│  └──────────────────────────┬───────────────────────────────┘  │
-└─────────────────────────────┼───────────────────────────────────┘
-                              │
-┌─────────────────────────────┼───────────────────────────────────┐
-│         LAYER 2: Qt GUI (Python Control — PySide6)             │
-│  ┌────────────┐  ┌─────────────┐  ┌────────────┐              │
-│  │ Diagram    │  │  MainWindow │  │Component   │              │
-│  │ Scene/View │  │ (orchestr.) │  │  Palette   │              │
-│  └─────┬──────┘  └──────┬──────┘  └─────┬──────┘              │
-│        │                │               │                      │
-│  ┌─────┴──────┐  ┌──────┴──────┐  ┌────┴─────┐              │
-│  │ NodeItem   │  │  EdgeItem   │  │ PortItem │              │
-│  │ (14 types) │  │ (routable)  │  │(signal)  │              │
-│  └─────┬──────┘  └──────┬──────┘  └────┬─────┘              │
-│        │                │              │                      │
-│  ┌─────┴──────┐  ┌──────┴──────────────┴─────┐              │
-│  │ ModuleBase │  │  PortBus → UART/Serial    │              │
-│  │ (hw class) │  │  (physical comm layer)    │              │
-│  └─────┬──────┘  └────────────┬───────────────┘              │
-└────────┼──────────────────────┼───────────────────────────────┘
-         │                      │ UART (serial)
-┌────────┼──────────────────────┼───────────────────────────────┐
-│   LAYER 3: FPGA (Kintex UltraScale — VHDL)                    │
-│  ┌─────┴──────────────────────┴─────────────────────┐         │
-│  │                  top entity                        │         │
-│  │  ┌────────┐  ┌──────────┐  ┌───────────────────┐ │         │
-│  │  │  UART  │  │  SPI     │  │  main_control     │ │         │
-│  │  │  TX/RX │  │  TRX     │  │  (AXI Lite µBlaze)│ │         │
-│  │  └───┬────┘  └────┬─────┘  └────────┬──────────┘ │         │
-│  │      └────────────┼─────────────────┘               │         │
-│  │           ┌───────┴──────────┐                      │         │
-│  │           │ central_control  │  ← UART parser FSM   │         │
-│  │           │ (bus master)     │                      │         │
-│  │           └───────┬──────────┘                      │         │
-│  │    ┌──────────────┼─────────────────┐              │         │
-│  │  ┌─┴─────┐  ┌─────┴────┐  ┌───────┴──────────┐   │         │
-│  │  │Bus    │  │Response  │  │ Custom Bus        │   │         │
-│  │  │Router │  │  Mux     │  │ d/a/m/c bus       │   │         │
-│  │  └───┬───┘  └─────┬────┘  └───────┬──────────┘   │         │
-│  │      └────────────┼───────────────┘               │         │
-│  │    ┌──────────────┴──────────────────────┐        │         │
-│  │    │        14 Signal Processing IPs      │        │         │
-│  │    │ PID/Accum/Trig/InverseTrig/Scaler/  │        │         │
-│  │    │ FIR/IIR/LinearTransformer/Mixer/    │        │         │
-│  │    │ Unwrapper/PDH-FSM/SCALO-FSM/        │        │         │
-│  │    │ SignalRouter/WaveformStorage        │        │         │
-│  │    └──────────────┬──────────────────────┘        │         │
-│  │    ┌──────────────┴──────────────────────┐        │         │
-│  │    │    io management (ADC/DAC adapters)  │        │         │
-│  │    │  FH8052/FH9767D/FL9613/FL9627/     │        │         │
-│  │    │  FL9781/FL1010/AN9767              │        │         │
-│  │    └─────────────────────────────────────┘        │         │
-│  └──────────────────────────────────────────────────┘         │
-└────────────────────────────────────────────────────────────────┘
-```
+
+**Layer 3 contents.** The 14 IPs: PID, Accumulator, Trigonometric, InverseTrig,
+Scaler, FIR, IIR, LinearTransformer, Mixer, Unwrapper, PDH-FSM, SCALO-FSM,
+SignalRouter, WaveformStorage. The 7 adapters: FH8052, FH9767D, FL9613, FL9627,
+FL9781, FL1010, AN9767.
 
 ### Layer 1: AI Agent
 Natural language understanding layer. Takes user requests in Chinese or English, orchestrates LLM function-calling to manipulate the visual canvas, and generates new VHDL+Python module code on demand.
@@ -498,23 +460,35 @@ Unrecognized signal names fall through to a small triangle (`unknown`).
 
 ### On-Chip Bus Architecture
 
-```
-                    ┌─────────────────────┐
-  PC (Python)       │   FPGA (VHDL)       │
-  ┌──────┐          │  ┌──────────────┐   │
-  │ Qt   │ UART     │  │central_control│  │
-  │ GUI  │◄────────►│  │  (FSM parser) │  │
-  └──────┘ serial   │  └──────┬───────┘   │
-                    │         │            │
-                    │  ┌──────┴───────┐   │
-                    │  │ Custom Bus   │   │
-                    │  │ d/a/m/c bus  │   │
-                    │  └──┬──┬──┬────┘   │
-                    │     │  │  │        │
-                    │  ┌──┴──┴──┴────┐   │
-                    │  │   Modules   │   │
-                    │  └─────────────┘   │
-                    └─────────────────────┘
+```mermaid
+flowchart LR
+    subgraph PC["PC &nbsp;(Python)"]
+        QT["<b>Qt GUI</b>"]
+    end
+
+    subgraph FPGA["FPGA &nbsp;(VHDL)"]
+        direction TB
+        CC["<b>central_control</b><br/><i>FSM parser · bus master</i>"]
+        CB["<b>Custom Bus</b><br/><i>mbus · abus · dbus · cbus</i>"]
+        M1["<b>Module</b><br/><i>bus_handler + param RAM + core</i>"]
+        M2["<b>Module</b>"]
+        M3["<b>Module</b>"]
+
+        CC -->|"command"| CB
+        CB --> M1
+        CB --> M2
+        CB --> M3
+        M1 -.->|"rdbus / rsbus"| CC
+        M2 -.-> CC
+        M3 -.-> CC
+    end
+
+    QT <==>|"UART · serial<br/>:BUS_…!"| CC
+
+    classDef pc fill:#eaf1f8,stroke:#5b84b1,color:#1e2a38
+    classDef fpga fill:#fdeff0,stroke:#85172e,color:#3a1118
+    class QT pc
+    class CC,CB,M1,M2,M3 fpga
 ```
 
 **Bus signals:**
@@ -551,30 +525,30 @@ Writes value `0x00004000` (16384) to address 2 (gain_d) of module `PIDC`.
 
 ### Python Communication Stack
 
+```mermaid
+flowchart TD
+    GUI["<b>Qt GUI</b><br/><i>QSerialPort</i>"]
+    SER["<b>MySerial</b> · <code>uart.py</code><br/><i>serial wrapper + echo verification</i>"]
+    BUS["<b>Bus</b> · <code>bus.py</code><br/><i>module.write() / read()</i>"]
+    SPI["<b>Spi</b> · <code>spi.py</code><br/><i>SPI device comms</i>"]
+    MB["<b>ModuleBase</b><br/><i>write / read / set / reset</i>"]
+    SUB["<b>Hardware subclasses</b><br/><i>14 module types</i>"]
+
+    GUI --> SER
+    SER --> BUS
+    SER --> SPI
+    BUS --> MB
+    MB --> SUB
+
+    classDef l2 fill:#eaf1f8,stroke:#5b84b1,color:#1e2a38
+    classDef leaf fill:#f7fafd,stroke:#8fa9c4,color:#1e2a38
+    class GUI,SER,BUS,SPI,MB l2
+    class SUB leaf
 ```
-Qt GUI (QSerialPort)
-    │
-    ▼
-MySerial (uart.py)       — Serial port wrapper, echoes verification
-    │
-    ├──► Bus (bus.py)     — Bus protocol: module.write()/read()
-    │       │
-    │       ▼
-    │   ModuleBase        — Module abstraction: write/read/set/reset
-    │       │
-    │       ├── ModulePID
-    │       ├── ModuleAccumulator
-    │       ├── ModuleScaler
-    │       ├── ModuleFIRFilter
-    │       ├── ModuleIIRFilter
-    │       ├── ModuleLinerTransformer
-    │       ├── ModuleSignalRouter (ROUT — 256 port crossbar)
-    │       ├── ModulePDHFSM
-    │       ├── ModuleSCLOFSM
-    │       └── ... (14 total)
-    │
-    └──► Spi (spi.py)   — SPI device communication
-```
+
+**Subclasses:** `ModulePID`, `ModuleAccumulator`, `ModuleScaler`, `ModuleFIRFilter`,
+`ModuleIIRFilter`, `ModuleLinerTransformer`, `ModuleSignalRouter` (256-port crossbar),
+`ModulePDHFSM`, `ModuleSCLOFSM`. TRIG, ATAN, MIXR, and UNWR use `ModuleBase` directly.
 
 **Parameter addressing:**
 - Each module has a `parameter_list` dict mapping addresses → {name, width}
@@ -588,39 +562,43 @@ MySerial (uart.py)       — Serial port wrapper, echoes verification
 
 ### Component Flow
 
-```
-User types "帮我搭建PDH锁定系统"
-    │
-    ▼
-AgentChatWidget ──Signal──► AgentCore.send_message()
-    │                           │
-    │                    _AgentWorker (QThread)
-    │                      ┌──────┴─────────┐
-    │                      │  LLM Loop       │
-    │                      │  (max 15 iter)  │
-    │                      │                 │
-    │                      │  LLM calls:     │
-    │                      │  get_module_info│
-    │                      │  create_module  │
-    │                      │  connect_modules│
-    │                      │  ...            │
-    │                      │                 │
-    │                      │  ToolExecutor   │
-    │                      │    │            │
-    │                      │    ▼            │
-    │                      │  CanvasBridge   │
-    │                      │  (safe facade)  │
-    │                      │    │            │
-    │                      │    ▼            │
-    │                      │  MainWindow     │
-    │                      │  DiagramScene   │
-    │                      └────────────────┘
-    │                           │
-    ▼                    Signals emitted:
-response_ready ────────────── final markdown
-tool_executed ────────────── tool call details
-thinking_started/stopped ── loading indicator
-error_occurred ──────────── error messages
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant W as AgentChatWidget
+    participant C as AgentCore
+    participant T as _AgentWorker<br/>(QThread)
+    participant L as LLM Client
+    participant E as ToolExecutor
+    participant B as CanvasBridge
+    participant S as MainWindow /<br/>DiagramScene
+
+    U->>W: "帮我搭建PDH锁定系统"
+    W->>C: user_message_submitted
+    C->>C: append system prompt (once) + user turn
+    C-->>W: thinking_started
+    C->>T: spawn worker
+
+    loop max 15 iterations
+        T->>L: chat(messages, tools)
+        L-->>T: assistant message<br/>(content and/or tool_calls)
+        alt no tool calls
+            Note over T: clean exit — return content
+        else tool calls present
+            T->>E: dispatch(name, args)
+            E->>B: bridge method
+            B->>S: Qt mutation
+            S-->>B: result
+            B-->>E: dict
+            E-->>T: JSON string (role: "tool")
+            T->>B: auto_layout()
+        end
+    end
+
+    T-->>C: finished(final_text, messages)
+    C-->>W: response_ready · tool_executed<br/>thinking_stopped · error_occurred
+    W-->>U: rendered markdown
 ```
 
 ### 9 Agent Tools
@@ -676,19 +654,66 @@ The `CanvasBridge` wraps Qt's `MainWindow`/`DiagramScene`/`DiagramView` internal
 
 ### Module Dependency Graph
 
+`qt_ui_mainwindow.py` is the hub, importing six siblings. Both entry points
+(`qt_UI1.py` for GUI-only, `FPGA_Agent/main.py` for GUI + Agent) converge on it.
+
+```mermaid
+flowchart TD
+    UI1["<code>qt_UI1.py</code><br/><i>launcher shim</i>"]
+    AGENTMAIN["<code>FPGA_Agent/main.py</code><br/><i>GUI + Agent entry</i>"]
+    MW["<code>qt_ui_mainwindow.py</code><br/><b>MainWindow</b> · hub"]
+
+    GRAPH["<code>qt_ui_graph.py</code><br/><i>Scene, View, Edge, Palette</i>"]
+    QMOD["<code>qt_module.py</code><br/><i>NodeItem + ParamDialog</i>"]
+    SCHEMA["<code>qt_module_schema.py</code>"]
+    QEC["<code>quantity_entry_core.py</code>"]
+    UTILS["<code>qt_ui_utils.py</code><br/><i>port / node mapping</i>"]
+    PORT["<code>qt_Port.py</code>"]
+    QUART["<code>qt_uart.py</code><br/><i>QtSerial</i>"]
+    QENV["<code>qt_env.py</code><br/><i>HardwareController</i>"]
+    QBUS["<code>qt_bus.py</code>"]
+    PN["<code>port_numbers.py</code>"]
+    HWMOD["<code>module.py</code><br/><i>hardware classes</i>"]
+    MISC["<code>spi.py</code> · <code>boards.py</code> · <code>chips.py</code><br/><code>module_signal_router.py</code>"]
+    IIRP["<code>IIR.py</code>"]
+    FIXED["<code>fixed.py</code>"]
+    THEME["<code>qt_ui_theme.py</code><br/><i>workstation theme</i>"]
+    TESTS["<code>tests/test_qt_ui_theme.py</code>"]
+
+    UI1 --> MW
+    AGENTMAIN --> MW
+    MW --> GRAPH
+    MW --> QMOD
+    MW --> UTILS
+    MW --> HWMOD
+    MW --> PN
+    GRAPH --> QMOD
+    QMOD --> SCHEMA
+    QMOD --> QEC
+    UTILS --> PORT
+    PORT --> QUART
+    PORT --> QENV
+    QENV --> QBUS
+    QENV --> HWMOD
+    QENV --> MISC
+    QBUS --> QUART
+    HWMOD --> IIRP
+    IIRP --> FIXED
+    TESTS --> THEME
+
+    classDef entry fill:#eef6ee,stroke:#4a7c59,color:#1b2e21
+    classDef hub fill:#eaf1f8,stroke:#5b84b1,stroke-width:2px,color:#1e2a38
+    classDef node fill:#f7fafd,stroke:#8fa9c4,color:#1e2a38
+    classDef orphan fill:#fdf6e3,stroke:#b8860b,stroke-dasharray:4 3,color:#3d2c05
+
+    class UI1,AGENTMAIN entry
+    class MW hub
+    class GRAPH,QMOD,SCHEMA,QEC,UTILS,PORT,QUART,QENV,QBUS,PN,HWMOD,MISC,IIRP,FIXED node
+    class THEME,TESTS orphan
 ```
-qt_UI1.py (assembly only)
-  └── qt_ui_mainwindow.py (orchestrator)
-      ├── qt_ui_graph.py (graphics: Scene, View, Edge, Palette)
-      │   └── qt_module.py (NodeItem classes)
-      ├── qt_ui_utils.py (port mapping, node mapping, utilities)
-      │   ├── qt_Port.py (PortItem)
-      │   │   ├── qt_uart.py
-      │   │   └── qt_env.py
-      │   └── port_numbers.py
-      ├── qt_module.py (all module NodeItem classes + ParamDialog)
-      └── qt_Port.py (serial communication)
-```
+
+The dashed amber box is `qt_ui_theme.py`: reachable only from its test, not yet
+imported by any GUI file. See [Current Status & Known Gaps](#current-status--known-gaps).
 
 ### Interaction Flow
 
@@ -796,18 +821,28 @@ unit: "Hz", "V", etc.
 
 The widget has three interaction states modeled as a Finite State Machine:
 
-```
-       Enter ┌──────────┐  store()  ┌───────────┐
-  typing ──► │ CHANGED  │ ────────► │ UNCHANGED │◄──┐
-  (yellow)   │ (yellow) │           │  (white)  │   │
-             └────┬─────┘           └─────┬─────┘   │
-                  │  Left/Right           │Left/Right│ Enter
-                  ▼                       ▼          │
-             ┌──────────┐           ┌───────────┐   │
-             │ ROLLING  │  ───────► │  ROLLING  │ ──┘
-             │ (digit   │  Enter    │  (digit   │
-             │  select) │           │  select)  │
-             └──────────┘           └───────────┘
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    [*] --> UNCHANGED
+
+    state "CHANGED &nbsp;(yellow)" as CHANGED
+    state "UNCHANGED &nbsp;(white)" as UNCHANGED
+    state "ROLLING — from CHANGED" as ROLL_C
+    state "ROLLING — from UNCHANGED" as ROLL_U
+
+    UNCHANGED --> CHANGED : typing
+    CHANGED --> UNCHANGED : store()
+
+    CHANGED --> ROLL_C : Left / Right
+    UNCHANGED --> ROLL_U : Left / Right
+
+    ROLL_C --> ROLL_U : Enter
+    ROLL_U --> UNCHANGED : Enter
+
+    ROLL_C --> ROLL_C : Up / Down<br/>(increment digit)
+    ROLL_U --> ROLL_U : Up / Down<br/>(increment digit)
 ```
 
 **Rolling mode**: Select a digit and use Up/Down/Left/Right to increment, decrement, and navigate digit positions. Handles:
@@ -856,29 +891,38 @@ Embeds two example widgets: frequency entry (Hz) and voltage entry (V) with full
 
 The canonical Pound-Drever-Hall locking pipeline:
 
-```
-                       ┌──────────────┐
-                       │ Photo-       │
-                       │ detector     │
-                       └──────┬───────┘
-                              │ (signal)
-                              ▼
-┌─────────┐   phase   ┌──────┴───────┐   ref    ┌──────────┐
-│ 累加器  │──────────►│ 三角函数运算器 ├──────────►│  混频器   │
-│ (ACCM)  │           │   (TRIG)      │ cos      │  (MIXR)  │
-└──▲──┬───┘           └──────────────┘          └────┬─────┘
-   │  │ fast (scan)                                  │ error
-   │  │                                              ▼
-   │  │  ┌──────────────┐                    ┌──────────────┐
-   │  └─►│  PDH状态机    │◄────── power ─────│ PID控制器    │
-   │     │   (PDHS)     │                    │  (PIDC)      │
-   │     └──────┬───────┘                    └──────┬───────┘
-   │            │ reset                              │ correction
-   └────────────┘                                    │
-                   ◄─────────────────────────────────┘
+```mermaid
+flowchart LR
+    PD(["<b>Photodetector</b><br/><i>via Border_out_X</i>"])
+    ACCM["<b>累加器</b><br/>ACCM"]
+    TRIG["<b>三角函数运算器</b><br/>TRIG"]
+    MIXR["<b>混频器</b><br/>MIXR"]
+    PIDC["<b>PID控制器</b><br/>PIDC"]
+    PDHS["<b>PDH状态机</b><br/>PDHS"]
+    DAC(["<b>DAC monitor</b><br/><i>Border_in_0</i>"])
 
-State Machine Sequence: idle → scan → lock → hold → (unlock on signal loss)
+    ACCM -->|"SLOW_OUT · phase"| TRIG
+    TRIG -->|"COS · reference"| MIXR
+    PD -->|"signal"| MIXR
+    MIXR -->|"OUT · error"| PIDC
+    PIDC -->|"OUT · correction"| ACCM
+    ACCM -->|"FAST_OUT · scan"| PDHS
+    ACCM -->|"FAST_OUT"| DAC
+
+    PDHS -.->|"PID_RESET_CTRL"| PIDC
+    PDHS -.->|"SCAN_RESET_CTRL"| ACCM
+
+    classDef ip fill:#fdeff0,stroke:#85172e,color:#3a1118
+    classDef fsm fill:#f4eef7,stroke:#8e6fa8,color:#2d2235
+    classDef ext fill:#fff8e6,stroke:#b8860b,color:#3d2c05
+
+    class ACCM,TRIG,MIXR,PIDC ip
+    class PDHS fsm
+    class PD,DAC ext
 ```
+
+Solid arrows are the signal path; dashed arrows are boolean control from the state
+machine. Its sequence: `idle → scan → lock → hold`, with `unlock` on signal loss.
 
 Mapped to tool calls:
 ```
