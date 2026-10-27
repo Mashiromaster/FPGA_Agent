@@ -6,38 +6,61 @@ An AI-assisted visual design environment for FPGA-based signal processing system
 
 ## System Architecture (Three-Layer Stack)
 
+Three layers, each a distinct authoring surface. You write natural language at
+the top, Python at the middle, and VHDL at the bottom.
+
 ```mermaid
-flowchart LR
-    LLM(["<b>LLM</b><br/><i>OpenAI-<br/>compatible</i>"])
+flowchart TB
+    USER(["自然语言请求"])
 
-    L1["<b>LAYER 1 · AI Agent</b><br/><i>Python + LLM</i><br/>―――<br/>Agent Core<br/>Tool Executor<br/>Code Gen<br/>Canvas Bridge"]
+    L1["<b>LAYER 1</b><br/>AGENT 控制层<br/>Python + LLM"]
+    L1D["工具 schema<br/>系统提示词<br/>代码生成模板"]
 
-    L2["<b>LAYER 2 · Qt GUI</b><br/><i>PySide6</i><br/>―――<br/>MainWindow<br/>DiagramScene<br/>NodeItem<br/>ModuleBase"]
+    L2["<b>LAYER 2</b><br/>PYTHON 控制层<br/>PySide6"]
+    L2D["节点类 NodeItem<br/>参数 schema<br/>硬件类 ModuleBase"]
 
-    L3["<b>LAYER 3 · FPGA</b><br/><i>Kintex UltraScale</i><br/>―――<br/>central_control<br/>Custom Bus<br/>14 Signal IPs<br/>io management"]
+    L3["<b>LAYER 3</b><br/>FPGA 硬件层<br/>VHDL / Verilog"]
+    L3D["IP core<br/>module wrapper<br/>约束 XDC"]
 
-    ANALOG(["<b>Optical / RF</b><br/><i>front-end</i>"])
+    ANALOG(["光学 / 射频前端"])
 
-    LLM <-->|"tool<br/>calls"| L1
-    L1 ==>|"Qt<br/>calls"| L2
-    L2 ==>|"UART<br/>serial"| L3
-    L3 <==>|"analog<br/>I/O"| ANALOG
+    USER ==> L1
+    L1 ==>|"Qt calls"| L2
+    L2 ==>|"UART serial"| L3
+    L3 <==>|"ADC / DAC"| ANALOG
+
+    L1 -.- L1D
+    L2 -.- L2D
+    L3 -.- L3D
 
     classDef l1 fill:#f4eef7,stroke:#8e6fa8,stroke-width:2px,color:#2d2235
     classDef l2 fill:#eaf1f8,stroke:#5b84b1,stroke-width:2px,color:#1e2a38
     classDef l3 fill:#fdeff0,stroke:#85172e,stroke-width:2px,color:#3a1118
-    classDef ext fill:#fff8e6,stroke:#b8860b,color:#3d2c05
+    classDef note fill:#fcfcfd,stroke:#bbb,stroke-dasharray:3 3,color:#444
+    classDef ext fill:#fff8e6,stroke:#b8860b,stroke-dasharray:4 3,color:#3d2c05
 
     class L1 l1
     class L2 l2
     class L3 l3
-    class LLM,ANALOG ext
+    class L1D,L2D,L3D note
+    class USER,ANALOG ext
 ```
 
-**Layer 3 contents.** The 14 IPs: PID, Accumulator, Trigonometric, InverseTrig,
+虚线框是每层的**编写对象** —— 搭一个新模块需要三层都动，参见
+`.agents/skills/integrating-dclocking-layers/`。
+
+| 层 | 代码位置 | 规模 | 核心组件 |
+|----|---------|------|---------|
+| Layer 1 · Agent | `FPGA_Agent/` | 3,308 行 | Agent Core · LLM Client · Tool Executor · Code Generator · Canvas Bridge |
+| Layer 2 · Python | `python control/` | 11,531 行 | MainWindow · DiagramScene · NodeItem · ModuleBase · Bus · MySerial |
+| Layer 3 · FPGA | `modules/` `io management/` | 14 IP + 7 适配器 | central_control · Custom Bus · bus_handler · parameter_ram |
+
+依赖严格单向：Layer 1 导入 Layer 2，Layer 2 对 Layer 1 零引用。
+
+**Layer 3 清单。** 14 个 IP：PID, Accumulator, Trigonometric, InverseTrig,
 Scaler, FIR, IIR, LinearTransformer, Mixer, Unwrapper, PDH-FSM, SCALO-FSM,
-SignalRouter, WaveformStorage. The 7 adapters: FH8052, FH9767D, FL9613, FL9627,
-FL9781, FL1010, AN9767.
+SignalRouter, WaveformStorage。7 个适配器：FH8052, FH9767D, FL9613, FL9627,
+FL9781, FL1010, AN9767。
 
 ### Layer 1: AI Agent
 Natural language understanding layer. Takes user requests in Chinese or English, orchestrates LLM function-calling to manipulate the visual canvas, and generates new VHDL+Python module code on demand.
