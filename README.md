@@ -69,9 +69,9 @@ verification artifacts. The entire engineering tree lives in the `DClocking/`
 submodule.
 
 The graduate thesis that documents this system lives in a **separate repository**
-at `../Thies/Thesis/` (six chapters under `毕业论文初稿/`, plus `蒋政毕业设计提纲.md`).
-See [Thesis Chapter Mapping](#thesis-chapter-mapping) for how its chapters map
-onto the layers of this codebase.
+at `../Thies/Thesis/` (six chapters under `毕业论文初稿/`, 约 53,400 字, plus
+`蒋政毕业设计提纲.md`). See [Thesis Chapter Mapping](#thesis-chapter-mapping) for
+how its chapters map onto the layers of this codebase, with per-chapter counts.
 
 ```
 FPGA_Agent/
@@ -1086,14 +1086,24 @@ first landed piece of it.
 The graduate thesis lives in a separate repository at `../Thies/Thesis/`. Its six
 chapters map onto this codebase as follows:
 
-| Chapter | Codebase layer |
-|---------|----------------|
-| 第一章 绪论 | — (background, literature) |
-| 第二章 硬件架构与数字控制实现 | `Top.vhdl`, `modules/`, `io management/`, `packages/` |
-| 第三章 上位机软件设计 | `python control/` |
-| 第四章 Agent 辅助设计系统 | `FPGA_Agent/` |
-| 第五章 实验设计与验证 | `test_artifacts/`, `saved_configs/` |
-| 第六章 总结与展望 | — |
+| Chapter | Codebase layer | 字数 |
+|---------|----------------|-----:|
+| 摘要 | — | 912 |
+| 第一章 绪论 | — (background, literature) | 10,198 |
+| 第二章 硬件架构与数字控制实现 | `Top.vhdl`, `modules/`, `io management/`, `packages/` | 17,958 |
+| 第三章 上位机软件设计 | `python control/` | 3,956 |
+| 第四章 Agent 辅助设计系统 | `FPGA_Agent/` | 5,530 |
+| 第五章 实验设计与验证 | `test_artifacts/`, `saved_configs/` | 12,579 |
+| 第六章 总结与展望 | — | 2,095 |
+| 参考文献 | — | 191 |
+| **正文合计** | | **53,419** |
+
+字数统计口径：中文字符 + 西文单词，剔除代码块与行内代码（统计于 2026-11-10）。
+合计 53,419 字中中文字符 49,267、西文词 4,152。章节体量与代码分层一致——第二章
+（硬件）最重，第五章（实验验证）次之。
+
+不计入合计的还有 `目录.md`（1,631）与 `初稿说明.md`（718）。`全文.md` 是汇编版，
+其 55,064 的计数包含目录，故以各章之和为准。
 
 Also in that repository: `蒋政毕业设计提纲.md` (outline), plus `摘要.md`, `目录.md`,
 `参考文献.md`, `全文.md` (assembled full text), and `初稿说明.md`.
